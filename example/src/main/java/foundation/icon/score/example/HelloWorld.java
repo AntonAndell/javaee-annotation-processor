@@ -20,7 +20,10 @@ import foundation.icon.score.client.ScoreInterface;
 import foundation.icon.score.example.model.BackwardCompatible;
 import foundation.icon.score.example.model.ParameterAcceptable;
 import score.annotation.External;
+import score.annotation.Optional;
+import score.annotation.Payable;
 
+import java.math.BigInteger;
 import java.util.Map;
 
 @ScoreInterface
@@ -69,4 +72,7 @@ public interface HelloWorld extends NameGetter {
     @External(readonly = true)
     Map<String, String> getEnumerableMap();
 
+    @Payable
+    @External
+    int optionalAdd(int first, @Optional int second, @Optional int third);
 }

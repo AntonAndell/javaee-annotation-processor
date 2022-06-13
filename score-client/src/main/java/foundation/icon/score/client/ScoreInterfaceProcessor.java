@@ -24,6 +24,7 @@ import score.Context;
 import score.annotation.EventLog;
 import score.annotation.External;
 import score.annotation.Payable;
+import score.annotation.Optional;
 
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -168,10 +169,30 @@ public class ScoreInterfaceProcessor extends AbstractProcessor {
                     if (external != null && !external.readonly() && ee.getAnnotation(Payable.class) != null) {
                         addMethod(methods, payableMethodSpec(ee, methodSpec), element);
                     }
+
+                    int firstOptionalIndex = getFirstOptionalParameterIndex(ee);
+                    for (int i = firstOptionalIndex; i < ee.getParameters().size(); i++) {
+                        MethodSpec optionalMethodSpec = methodSpec(ee, mustGenerate, i);
+                        addMethod(methods, optionalMethodSpec, element);
+                        if (external != null && !external.readonly() && ee.getAnnotation(Payable.class) != null) {
+                            addMethod(methods, payableMethodSpec(ee, optionalMethodSpec, i), element);
+                        }
+                    }
                 }
             }
         }
+
         return methods;
+    }
+
+    private int getFirstOptionalParameterIndex(ExecutableElement ee) {
+        for (int i = 0; i < ee.getParameters().size(); i++) {
+            if (ee.getParameters().get(i).getAnnotation(Optional.class)  != null) {
+                return i;
+            }
+        }
+
+        return ee.getParameters().size();
     }
 
     private void addMethod(List<MethodSpec> methods, MethodSpec methodSpec, TypeElement element) {
@@ -190,17 +211,22 @@ public class ScoreInterfaceProcessor extends AbstractProcessor {
         }
     }
 
-    private String callParameters(ExecutableElement element) {
+    private String callParameters(ExecutableElement element, int slice) {
         StringJoiner variables = new StringJoiner(", ");
         variables.add(String.format("this.%s", MEMBER_ADDRESS));
         variables.add(String.format("\"%s\"", element.getSimpleName().toString()));
-        for (VariableElement variableElement : element.getParameters()) {
+        for (VariableElement variableElement : element.getParameters().subList(0, slice)) {
             variables.add(variableElement.getSimpleName().toString());
         }
+
         return variables.toString();
     }
 
     private MethodSpec methodSpec(ExecutableElement ee, boolean mustGenerate) {
+        return methodSpec(ee, mustGenerate, ee.getParameters().size());
+    }
+
+    private MethodSpec methodSpec(ExecutableElement ee, boolean mustGenerate, int slice) {
         if (ee.getAnnotation(EventLog.class) != null) {
             return notSupportedMethod(ee, "not supported EventLog method");
         }
@@ -213,10 +239,10 @@ public class ScoreInterfaceProcessor extends AbstractProcessor {
                 .methodBuilder(methodName)
 //                .addAnnotation(Override.class)
                 .addModifiers(ProcessorUtil.getModifiers(ee, Modifier.ABSTRACT))
-                .addParameters(ProcessorUtil.getParameterSpecs(ee))
+                .addParameters(ProcessorUtil.getParameterSpecs(ee, slice))
                 .returns(returnTypeName);
 
-        String callParameters = callParameters(ee);
+        String callParameters = callParameters(ee, slice);
         if (returnTypeName.equals(TypeName.VOID)) {
             builder.addStatement("$T.call($L)", Context.class, callParameters);
         } else {
@@ -231,13 +257,17 @@ public class ScoreInterfaceProcessor extends AbstractProcessor {
     }
 
     private MethodSpec payableMethodSpec(ExecutableElement ee, MethodSpec methodSpec) {
+        return payableMethodSpec(ee, methodSpec, ee.getParameters().size());
+    }
+
+    private MethodSpec payableMethodSpec(ExecutableElement ee, MethodSpec methodSpec, int slice) {
         MethodSpec.Builder builder = MethodSpec.methodBuilder(methodSpec.name)
                 .addModifiers(methodSpec.modifiers)
                 .addParameter(BigInteger.class, PARAM_PAYABLE_VALUE)
                 .addParameters(methodSpec.parameters)
                 .returns(methodSpec.returnType);
 
-        String callParameters = callParameters(ee);
+        String callParameters = callParameters(ee, slice);
         TypeMirror returnType = ee.getReturnType();
         if (methodSpec.returnType.equals(TypeName.VOID)) {
             builder.addStatement("$T.call($L, $L)", Context.class, PARAM_PAYABLE_VALUE, callParameters);

@@ -189,6 +189,10 @@ public class ProcessorUtil {
         return annotationSpecs;
     }
 
+    public static List<ParameterSpec> getParameterSpecs(ExecutableElement element, int slice) {
+        return getParameterSpecs(element).subList(0, slice);
+    }
+
     public static List<ParameterSpec> getParameterSpecs(ExecutableElement element) {
         List<? extends VariableElement> parameters = element.getParameters();
         List<ParameterSpec> parameterSpecs = new ArrayList<>();

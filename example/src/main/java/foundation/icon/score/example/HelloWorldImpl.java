@@ -24,6 +24,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 import java.math.BigInteger;
@@ -154,6 +155,12 @@ public class HelloWorldImpl implements HelloWorld, IcxTransfer {
     @External(readonly = true)
     public Map<String, String> getEnumerableMap() {
         return enumerableDictDB.toMap();
+    }
+
+    @Payable
+    @External
+    public int optionalAdd(int first, @Optional int second, @Optional int third) {
+        return first + second + third;
     }
 
     @Payable
